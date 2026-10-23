@@ -6,6 +6,7 @@ import com.focusforge.focusforge.model.TaskPriority;
 import com.focusforge.focusforge.repository.TaskRepository;
 import org.springframework.stereotype.Service;
 
+import java.util.Comparator;
 import java.util.List;
 
 @Service
@@ -21,10 +22,83 @@ public class TaskService {
         return taskRepository.findAll();
     }
 
-    public Task addTask(String title, String description, TaskPriority priority) {
+    public List<Task> searchTasks(String keyword) {
+        if (keyword == null || keyword.isBlank()) {
+            return getAllTasks();
+        }
+
+        return taskRepository.findByTitleContainingIgnoreCase(keyword.trim());
+    }
+
+    
+public List<Task> filterTasks(
+        String search,
+        Boolean completed,
+        TaskPriority priority) {
+
+    return filterTasks(search, completed, priority, "id", "asc");
+}
+
+public List<Task> filterTasks(
+        String search,
+        Boolean completed,
+        TaskPriority priority,
+        String sortBy,
+        String direction) {
+
+    String keyword = (search == null || search.isBlank())
+            ? null : search.trim();
+
+    List<Task> tasks = taskRepository.findByFilters(
+            keyword, completed, priority);
+
+    Comparator<Task> comparator;
+
+    String field = (sortBy == null || sortBy.isBlank())
+            ? "id" : sortBy.trim().toLowerCase();
+
+    switch (field) {
+        case "title" ->
+                comparator = Comparator.comparing(
+                        Task::getTitle,
+                        Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER));
+
+        case "priority" ->
+                comparator = Comparator.comparing(
+                        Task::getPriority,
+                        Comparator.nullsLast(Comparator.naturalOrder()));
+
+        case "id" ->
+                comparator = Comparator.comparing(
+                        Task::getId,
+                        Comparator.nullsLast(Comparator.naturalOrder()));
+
+        default ->
+                throw new IllegalArgumentException(
+                        "Invalid sortBy value. Use title, priority, or id.");
+    }
+
+    if ("desc".equalsIgnoreCase(direction)) {
+        comparator = comparator.reversed();
+    } else if (direction != null
+            && !direction.isBlank()
+            && !"asc".equalsIgnoreCase(direction)) {
+        throw new IllegalArgumentException(
+                "Invalid direction. Use asc or desc.");
+    }
+
+    tasks.sort(comparator);
+    return tasks;
+}
+
+
+    public Task addTask(
+            String title,
+            String description,
+            TaskPriority priority) {
+
         Task task = new Task(null, title, false, priority);
         task.setDescription(description);
-
         return taskRepository.save(task);
     }
 

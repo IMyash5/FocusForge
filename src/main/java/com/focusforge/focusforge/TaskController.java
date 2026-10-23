@@ -4,6 +4,7 @@ package com.focusforge.focusforge;
 import com.focusforge.focusforge.dto.CreateTaskRequest;
 import com.focusforge.focusforge.dto.UpdateTaskRequest;
 import com.focusforge.focusforge.model.Task;
+import com.focusforge.focusforge.model.TaskPriority;
 import com.focusforge.focusforge.service.TaskService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -29,10 +30,30 @@ public class TaskController {
         this.taskService = taskService;
     }
 
-    @GetMapping
-    public List<Task> getAllTasks() {
-        return taskService.getAllTasks();
-    }
+    
+
+@GetMapping
+public List<Task> getAllTasks(
+        @org.springframework.web.bind.annotation.RequestParam(required = false)
+        String search,
+
+        @org.springframework.web.bind.annotation.RequestParam(required = false)
+        Boolean completed,
+
+        @org.springframework.web.bind.annotation.RequestParam(required = false)
+        TaskPriority priority,
+
+        @org.springframework.web.bind.annotation.RequestParam(defaultValue = "id")
+        String sortBy,
+
+        @org.springframework.web.bind.annotation.RequestParam(defaultValue = "asc")
+        String direction) {
+
+    return taskService.filterTasks(
+            search, completed, priority, sortBy, direction);
+}
+
+
 
     @GetMapping("/{id}")
     public Task getTaskById(@PathVariable Long id) {
