@@ -2,6 +2,7 @@
 package com.focusforge.focusforge.service;
 
 import com.focusforge.focusforge.model.Task;
+import com.focusforge.focusforge.model.TaskPriority;
 import com.focusforge.focusforge.repository.TaskRepository;
 import org.springframework.stereotype.Service;
 
@@ -20,8 +21,10 @@ public class TaskService {
         return taskRepository.findAll();
     }
 
-    public Task addTask(String title) {
-        Task task = new Task(null, title, false);
+    public Task addTask(String title, String description, TaskPriority priority) {
+        Task task = new Task(null, title, false, priority);
+        task.setDescription(description);
+
         return taskRepository.save(task);
     }
 
@@ -29,7 +32,13 @@ public class TaskService {
         return taskRepository.findById(id).orElse(null);
     }
 
-    public Task updateTask(Long id, String title, boolean completed) {
+    public Task updateTask(
+            Long id,
+            String title,
+            String description,
+            boolean completed,
+            TaskPriority priority) {
+
         Task task = getTaskById(id);
 
         if (task == null) {
@@ -37,7 +46,9 @@ public class TaskService {
         }
 
         task.setTitle(title);
+        task.setDescription(description);
         task.setCompleted(completed);
+        task.setPriority(priority);
 
         return taskRepository.save(task);
     }

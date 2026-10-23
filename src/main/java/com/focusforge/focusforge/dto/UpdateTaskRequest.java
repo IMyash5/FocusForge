@@ -1,14 +1,22 @@
 
 package com.focusforge.focusforge.dto;
 
+import com.focusforge.focusforge.model.TaskPriority;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 public class UpdateTaskRequest {
 
     @NotBlank(message = "Task title cannot be empty or blank")
+    @Size(max = 100, message = "Task title cannot exceed 100 characters")
     private String title;
 
+    @Size(max = 1000, message = "Task description cannot exceed 1000 characters")
+    private String description;
+
     private boolean completed;
+
+    private TaskPriority priority = TaskPriority.MEDIUM;
 
     public UpdateTaskRequest() {
     }
@@ -21,11 +29,27 @@ public class UpdateTaskRequest {
         this.title = title;
     }
 
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
     public boolean isCompleted() {
         return completed;
     }
 
     public void setCompleted(boolean completed) {
         this.completed = completed;
+    }
+
+    public TaskPriority getPriority() {
+        return priority;
+    }
+
+    public void setPriority(TaskPriority priority) {
+        this.priority = priority;
     }
 }
