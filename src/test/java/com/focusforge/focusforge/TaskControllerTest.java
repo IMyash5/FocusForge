@@ -74,7 +74,7 @@ class TaskControllerTest {
         mockMvc.perform(post("/api/tasks")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(requestBody))
-                .andExpect(status().isOk())
+                .andExpect(status().isCreated())
                 .andExpect(content().contentTypeCompatibleWith(
                         MediaType.APPLICATION_JSON))
                 .andExpect(jsonPath("$.id").isNumber())
@@ -185,7 +185,7 @@ class TaskControllerTest {
         Long taskId = firstTask.getId();
 
         mockMvc.perform(delete("/api/tasks/" + taskId))
-                .andExpect(status().isOk());
+                .andExpect(status().isNoContent());
 
         mockMvc.perform(get("/api/tasks/" + taskId))
                 .andExpect(status().isNotFound());

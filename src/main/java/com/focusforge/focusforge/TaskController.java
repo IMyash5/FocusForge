@@ -11,6 +11,7 @@ import com.focusforge.focusforge.service.TaskService;
 import jakarta.validation.Valid;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.net.URI;
 import java.util.List;
 
 @RestController
@@ -33,6 +35,7 @@ public class TaskController {
     public TaskController(TaskService taskService) {
         this.taskService = taskService;
     }
+
     @GetMapping("/stats")
     public TaskStatisticsResponse getTaskStatistics() {
         return taskService.getTaskStatistics();
@@ -64,14 +67,21 @@ public class TaskController {
     }
 
     @PostMapping
-    public Task createTask(
+    public ResponseEntity<Task> createTask(
             @Valid @RequestBody CreateTaskRequest request) {
 
-        return taskService.addTask(
+        Task createdTask = taskService.addTask(
                 request.getTitle(),
                 request.getDescription(),
                 request.getPriority(),
                 request.getDueDate());
+
+        URI location = URI.create(
+                "/api/tasks/" + createdTask.getId());
+
+        return ResponseEntity
+                .created(location)
+                .body(createdTask);
     }
 
     @PutMapping("/{id}")
@@ -97,7 +107,9 @@ public class TaskController {
     }
 
     @DeleteMapping("/{id}")
-    public void deleteTask(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteTask(
+            @PathVariable Long id) {
+
         boolean deleted = taskService.deleteTask(id);
 
         if (!deleted) {
@@ -105,5 +117,7 @@ public class TaskController {
                     HttpStatus.NOT_FOUND,
                     "Task not found with id: " + id);
         }
+
+        return ResponseEntity.noContent().build();
     }
 }
