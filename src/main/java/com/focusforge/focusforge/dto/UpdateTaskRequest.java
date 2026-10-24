@@ -1,6 +1,7 @@
 
 package com.focusforge.focusforge.dto;
 
+import java.time.LocalDate;
 import com.focusforge.focusforge.model.TaskPriority;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -15,7 +16,7 @@ public class UpdateTaskRequest {
     private String description;
 
     private boolean completed;
-
+    private LocalDate dueDate;
     private TaskPriority priority = TaskPriority.MEDIUM;
 
     public UpdateTaskRequest() {
@@ -51,5 +52,13 @@ public class UpdateTaskRequest {
 
     public void setPriority(TaskPriority priority) {
         this.priority = priority;
+    }
+
+    public LocalDate getDueDate() {
+        return dueDate;
+    }
+
+    public void setDueDate(LocalDate dueDate) {
+        this.dueDate = dueDate;
     }
 }

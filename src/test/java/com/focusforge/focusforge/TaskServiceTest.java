@@ -5,11 +5,13 @@ import com.focusforge.focusforge.model.Task;
 import com.focusforge.focusforge.model.TaskPriority;
 import com.focusforge.focusforge.repository.TaskRepository;
 import com.focusforge.focusforge.service.TaskService;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -32,13 +34,7 @@ class TaskServiceTest {
 
     @Test
     void shouldAddTaskSuccessfully() {
-        Task savedTask = new Task(
-                3L,
-                "Finish DBMS assignment",
-                false,
-                TaskPriority.HIGH
-        );
-        savedTask.setDescription("Complete the database assignment");
+        LocalDate dueDate = LocalDate.of(2026, 11, 15);
 
         when(taskRepository.save(any(Task.class)))
                 .thenAnswer(invocation -> {
@@ -50,21 +46,27 @@ class TaskServiceTest {
         Task result = taskService.addTask(
                 "Finish DBMS assignment",
                 "Complete the database assignment",
-                TaskPriority.HIGH
+                TaskPriority.HIGH,
+                dueDate
         );
 
         assertNotNull(result);
         assertEquals("Finish DBMS assignment", result.getTitle());
-        assertEquals("Complete the database assignment", result.getDescription());
+        assertEquals(
+                "Complete the database assignment",
+                result.getDescription()
+        );
         assertEquals(TaskPriority.HIGH, result.getPriority());
         assertFalse(result.isCompleted());
+        assertEquals(dueDate, result.getDueDate());
 
         verify(taskRepository).save(any(Task.class));
     }
 
     @Test
     void shouldFindTaskById() {
-        Task expectedTask = new Task(1L, "Complete Java assignment", false);
+        Task expectedTask =
+                new Task(1L, "Complete Java assignment", false);
 
         when(taskRepository.findById(1L))
                 .thenReturn(Optional.of(expectedTask));
@@ -73,7 +75,10 @@ class TaskServiceTest {
 
         assertNotNull(result);
         assertEquals(1L, result.getId());
-        assertEquals("Complete Java assignment", result.getTitle());
+        assertEquals(
+                "Complete Java assignment",
+                result.getTitle()
+        );
     }
 
     @Test
@@ -89,10 +94,14 @@ class TaskServiceTest {
 
     @Test
     void shouldUpdateTaskSuccessfully() {
-        Task existingTask = new Task(1L, "Old title", false);
+        LocalDate dueDate = LocalDate.of(2026, 12, 1);
+
+        Task existingTask =
+                new Task(1L, "Old title", false);
 
         when(taskRepository.findById(1L))
                 .thenReturn(Optional.of(existingTask));
+
         when(taskRepository.save(any(Task.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -101,7 +110,8 @@ class TaskServiceTest {
                 "New title",
                 "Updated description",
                 true,
-                TaskPriority.HIGH
+                TaskPriority.HIGH,
+                dueDate
         );
 
         assertNotNull(result);
@@ -109,6 +119,7 @@ class TaskServiceTest {
         assertEquals("Updated description", result.getDescription());
         assertTrue(result.isCompleted());
         assertEquals(TaskPriority.HIGH, result.getPriority());
+        assertEquals(dueDate, result.getDueDate());
 
         verify(taskRepository).findById(1L);
         verify(taskRepository).save(existingTask);
@@ -124,7 +135,8 @@ class TaskServiceTest {
                 "New title",
                 "Updated description",
                 true,
-                TaskPriority.HIGH
+                TaskPriority.HIGH,
+                null
         );
 
         assertNull(result);
@@ -134,7 +146,8 @@ class TaskServiceTest {
 
     @Test
     void shouldDeleteTaskSuccessfully() {
-        Task existingTask = new Task(1L, "Complete Java assignment", false);
+        Task existingTask =
+                new Task(1L, "Complete Java assignment", false);
 
         when(taskRepository.findById(1L))
                 .thenReturn(Optional.of(existingTask));
@@ -160,7 +173,8 @@ class TaskServiceTest {
 
     @Test
     void shouldPreserveOtherTasksWhenDeletingOneTask() {
-        Task taskToDelete = new Task(1L, "Task to delete", false);
+        Task taskToDelete =
+                new Task(1L, "Task to delete", false);
 
         when(taskRepository.findById(1L))
                 .thenReturn(Optional.of(taskToDelete));
@@ -185,8 +199,14 @@ class TaskServiceTest {
         List<Task> result = taskService.getAllTasks();
 
         assertEquals(2, result.size());
-        assertEquals("Complete Java assignment", result.get(0).getTitle());
-        assertEquals("Practice Data Structures", result.get(1).getTitle());
+        assertEquals(
+                "Complete Java assignment",
+                result.get(0).getTitle()
+        );
+        assertEquals(
+                "Practice Data Structures",
+                result.get(1).getTitle()
+        );
 
         verify(taskRepository).findAll();
     }
@@ -199,10 +219,13 @@ class TaskServiceTest {
         Task result = taskService.addTask(
                 "Read Java notes",
                 null,
+                null,
                 null
         );
 
         assertEquals(TaskPriority.MEDIUM, result.getPriority());
+        assertNull(result.getDueDate());
+
         verify(taskRepository).save(any(Task.class));
     }
 }

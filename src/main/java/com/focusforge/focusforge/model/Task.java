@@ -8,6 +8,8 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 
+import java.time.LocalDate;
+
 @Entity
 public class Task {
 
@@ -23,6 +25,8 @@ public class Task {
 
     @Enumerated(EnumType.STRING)
     private TaskPriority priority = TaskPriority.MEDIUM;
+
+    private LocalDate dueDate;
 
     public Task() {
     }
@@ -48,19 +52,21 @@ public class Task {
     public void setId(Long id) {
         this.id = id;
     }
-public String getDescription() {
-    return description;
-}
 
-public void setDescription(String description) {
-    this.description = description;
-}
     public String getTitle() {
         return title;
     }
 
     public void setTitle(String title) {
         this.title = title;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
     }
 
     public boolean isCompleted() {
@@ -77,5 +83,13 @@ public void setDescription(String description) {
 
     public void setPriority(TaskPriority priority) {
         this.priority = priority != null ? priority : TaskPriority.MEDIUM;
+    }
+
+    public LocalDate getDueDate() {
+        return dueDate;
+    }
+
+    public void setDueDate(LocalDate dueDate) {
+        this.dueDate = dueDate;
     }
 }

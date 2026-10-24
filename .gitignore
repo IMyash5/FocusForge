@@ -49,3 +49,11 @@ logs/
 # Operating system files
 .DS_Store
 Thumbs.db
+
+# Local database files
+data/
+
+# Local diagnostic logs
+flyway-debug.txt
+flyway-startup.txt
+startup-log.txt

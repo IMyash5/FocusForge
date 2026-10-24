@@ -6,7 +6,9 @@ import com.focusforge.focusforge.dto.UpdateTaskRequest;
 import com.focusforge.focusforge.model.Task;
 import com.focusforge.focusforge.model.TaskPriority;
 import com.focusforge.focusforge.service.TaskService;
+
 import jakarta.validation.Valid;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,6 +17,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -30,30 +33,17 @@ public class TaskController {
         this.taskService = taskService;
     }
 
-    
+    @GetMapping
+    public List<Task> getAllTasks(
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) Boolean completed,
+            @RequestParam(required = false) TaskPriority priority,
+            @RequestParam(defaultValue = "id") String sortBy,
+            @RequestParam(defaultValue = "asc") String direction) {
 
-@GetMapping
-public List<Task> getAllTasks(
-        @org.springframework.web.bind.annotation.RequestParam(required = false)
-        String search,
-
-        @org.springframework.web.bind.annotation.RequestParam(required = false)
-        Boolean completed,
-
-        @org.springframework.web.bind.annotation.RequestParam(required = false)
-        TaskPriority priority,
-
-        @org.springframework.web.bind.annotation.RequestParam(defaultValue = "id")
-        String sortBy,
-
-        @org.springframework.web.bind.annotation.RequestParam(defaultValue = "asc")
-        String direction) {
-
-    return taskService.filterTasks(
-            search, completed, priority, sortBy, direction);
-}
-
-
+        return taskService.filterTasks(
+                search, completed, priority, sortBy, direction);
+    }
 
     @GetMapping("/{id}")
     public Task getTaskById(@PathVariable Long id) {
@@ -62,11 +52,21 @@ public List<Task> getAllTasks(
         if (task == null) {
             throw new ResponseStatusException(
                     HttpStatus.NOT_FOUND,
-                    "Task not found with id: " + id
-            );
+                    "Task not found with id: " + id);
         }
 
         return task;
+    }
+
+    @PostMapping
+    public Task createTask(
+            @Valid @RequestBody CreateTaskRequest request) {
+
+        return taskService.addTask(
+                request.getTitle(),
+                request.getDescription(),
+                request.getPriority(),
+                request.getDueDate());
     }
 
     @PutMapping("/{id}")
@@ -79,14 +79,13 @@ public List<Task> getAllTasks(
                 request.getTitle(),
                 request.getDescription(),
                 request.isCompleted(),
-                request.getPriority()
-        );
+                request.getPriority(),
+                request.getDueDate());
 
         if (updatedTask == null) {
             throw new ResponseStatusException(
                     HttpStatus.NOT_FOUND,
-                    "Task not found with id: " + id
-            );
+                    "Task not found with id: " + id);
         }
 
         return updatedTask;
@@ -99,17 +98,7 @@ public List<Task> getAllTasks(
         if (!deleted) {
             throw new ResponseStatusException(
                     HttpStatus.NOT_FOUND,
-                    "Task not found with id: " + id
-            );
+                    "Task not found with id: " + id);
         }
-    }
-
-    @PostMapping
-    public Task createTask(@Valid @RequestBody CreateTaskRequest request) {
-        return taskService.addTask(
-                request.getTitle(),
-                request.getDescription(),
-                request.getPriority()
-        );
     }
 }
