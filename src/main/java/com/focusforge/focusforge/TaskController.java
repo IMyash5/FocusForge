@@ -2,6 +2,7 @@
 package com.focusforge.focusforge;
 
 import com.focusforge.focusforge.dto.CreateTaskRequest;
+import com.focusforge.focusforge.dto.TaskStatisticsResponse;
 import com.focusforge.focusforge.dto.UpdateTaskRequest;
 import com.focusforge.focusforge.model.Task;
 import com.focusforge.focusforge.model.TaskPriority;
@@ -31,6 +32,10 @@ public class TaskController {
 
     public TaskController(TaskService taskService) {
         this.taskService = taskService;
+    }
+    @GetMapping("/stats")
+    public TaskStatisticsResponse getTaskStatistics() {
+        return taskService.getTaskStatistics();
     }
 
     @GetMapping

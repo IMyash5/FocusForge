@@ -1,6 +1,7 @@
 
 package com.focusforge.focusforge.service;
 
+import com.focusforge.focusforge.dto.TaskStatisticsResponse;
 import com.focusforge.focusforge.model.Task;
 import com.focusforge.focusforge.model.TaskPriority;
 import com.focusforge.focusforge.repository.TaskRepository;
@@ -54,11 +55,11 @@ public class TaskService {
         List<Task> tasks = taskRepository.findByFilters(
                 keyword, completed, priority);
 
-        Comparator<Task> comparator;
-
         String field = (sortBy == null || sortBy.isBlank())
                 ? "id"
                 : sortBy.trim().toLowerCase();
+
+        Comparator<Task> comparator;
 
         switch (field) {
             case "title" ->
@@ -78,7 +79,7 @@ public class TaskService {
                             Task::getId,
                             Comparator.nullsLast(
                                     Comparator.naturalOrder()));
-            
+
             case "duedate" ->
                     comparator = Comparator.comparing(
                             Task::getDueDate,
@@ -87,25 +88,26 @@ public class TaskService {
 
             default ->
                     throw new IllegalArgumentException(
-        "Invalid sortBy value. Use id, title, priority, or dueDate.");
+                            "Invalid sortBy value. Use id, title, priority, or dueDate.");
         }
 
         boolean descending = "desc".equalsIgnoreCase(direction);
 
-if (descending) {
-    if ("duedate".equals(field)) {
-        comparator = Comparator.comparing(
-                Task::getDueDate,
-                Comparator.nullsLast(Comparator.reverseOrder()));
-    } else {
-        comparator = comparator.reversed();
-    }
-} else if (direction != null
-        && !direction.isBlank()
-        && !"asc".equalsIgnoreCase(direction)) {
-    throw new IllegalArgumentException(
-            "Invalid direction. Use asc or desc.");
-}
+        if (descending) {
+            if ("duedate".equals(field)) {
+                comparator = Comparator.comparing(
+                        Task::getDueDate,
+                        Comparator.nullsLast(
+                                Comparator.reverseOrder()));
+            } else {
+                comparator = comparator.reversed();
+            }
+        } else if (direction != null
+                && !direction.isBlank()
+                && !"asc".equalsIgnoreCase(direction)) {
+            throw new IllegalArgumentException(
+                    "Invalid direction. Use asc or desc.");
+        }
 
         tasks.sort(comparator);
         return tasks;
@@ -152,11 +154,35 @@ if (descending) {
     }
 
     public boolean deleteTask(Long id) {
-    if (!taskRepository.existsById(id)) {
-        return false;
+        if (!taskRepository.existsById(id)) {
+            return false;
+        }
+
+        taskRepository.deleteById(id);
+        return true;
     }
 
-    taskRepository.deleteById(id);
-    return true;
-}
+    public TaskStatisticsResponse getTaskStatistics() {
+        List<Task> tasks = taskRepository.findAll();
+
+        long totalTasks = tasks.size();
+
+        long completedTasks = tasks.stream()
+                .filter(Task::isCompleted)
+                .count();
+
+        long pendingTasks = totalTasks - completedTasks;
+
+        double completionPercentage = totalTasks == 0
+                ? 0.0
+                : Math.round(
+                        (completedTasks * 100.0 / totalTasks) * 100.0
+                ) / 100.0;
+
+        return new TaskStatisticsResponse(
+                totalTasks,
+                completedTasks,
+                pendingTasks,
+                completionPercentage);
+    }
 }
