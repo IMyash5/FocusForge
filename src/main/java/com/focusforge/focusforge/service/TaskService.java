@@ -78,20 +78,34 @@ public class TaskService {
                             Task::getId,
                             Comparator.nullsLast(
                                     Comparator.naturalOrder()));
+            
+            case "duedate" ->
+                    comparator = Comparator.comparing(
+                            Task::getDueDate,
+                            Comparator.nullsLast(
+                                    Comparator.naturalOrder()));
 
             default ->
                     throw new IllegalArgumentException(
-                            "Invalid sortBy value. Use title, priority, or id.");
+        "Invalid sortBy value. Use id, title, priority, or dueDate.");
         }
 
-        if ("desc".equalsIgnoreCase(direction)) {
-            comparator = comparator.reversed();
-        } else if (direction != null
-                && !direction.isBlank()
-                && !"asc".equalsIgnoreCase(direction)) {
-            throw new IllegalArgumentException(
-                    "Invalid direction. Use asc or desc.");
-        }
+        boolean descending = "desc".equalsIgnoreCase(direction);
+
+if (descending) {
+    if ("duedate".equals(field)) {
+        comparator = Comparator.comparing(
+                Task::getDueDate,
+                Comparator.nullsLast(Comparator.reverseOrder()));
+    } else {
+        comparator = comparator.reversed();
+    }
+} else if (direction != null
+        && !direction.isBlank()
+        && !"asc".equalsIgnoreCase(direction)) {
+    throw new IllegalArgumentException(
+            "Invalid direction. Use asc or desc.");
+}
 
         tasks.sort(comparator);
         return tasks;
@@ -138,13 +152,11 @@ public class TaskService {
     }
 
     public boolean deleteTask(Long id) {
-        Task task = getTaskById(id);
-
-        if (task == null) {
-            return false;
-        }
-
-        taskRepository.delete(task);
-        return true;
+    if (!taskRepository.existsById(id)) {
+        return false;
     }
+
+    taskRepository.deleteById(id);
+    return true;
+}
 }
