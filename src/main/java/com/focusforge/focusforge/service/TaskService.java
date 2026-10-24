@@ -13,6 +13,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.util.Comparator;
 import java.util.List;
 
 @Service
@@ -42,81 +43,44 @@ public class TaskService {
             Boolean completed,
             TaskPriority priority) {
 
-        return filterTasks(
-                search, completed, priority, "id", "asc");
+        return filterTasks(search, completed, priority, "id", "asc");
     }
 
     public List<Task> filterTasks(
-        String search,
-        Boolean completed,
-        TaskPriority priority,
-        String sortBy,
-        String direction) {
+            String search,
+            Boolean completed,
+            TaskPriority priority,
+            String sortBy,
+            String direction) {
 
-    String keyword = (search == null || search.isBlank())
-            ? null
-            : search.trim();
+        String keyword = normalizeSearch(search);
 
-    List<Task> tasks = taskRepository.findByFilters(
-            keyword, completed, priority);
+        List<Task> tasks = taskRepository.findByFilters(
+                keyword, completed, priority);
 
-    String field = (sortBy == null || sortBy.isBlank())
-            ? "id"
-            : sortBy.trim().toLowerCase();
+        String field = normalizeSortField(sortBy);
+        Comparator<Task> comparator = getComparator(field);
 
-    java.util.Comparator<Task> comparator;
-
-    switch (field) {
-        case "title" ->
-                comparator = java.util.Comparator.comparing(
-                        Task::getTitle,
-                        java.util.Comparator.nullsLast(
-                                String.CASE_INSENSITIVE_ORDER));
-
-        case "priority" ->
-                comparator = java.util.Comparator.comparing(
-                        Task::getPriority,
-                        java.util.Comparator.nullsLast(
-                                java.util.Comparator.naturalOrder()));
-
-        case "id" ->
-                comparator = java.util.Comparator.comparing(
-                        Task::getId,
-                        java.util.Comparator.nullsLast(
-                                java.util.Comparator.naturalOrder()));
-
-        case "duedate" ->
-                comparator = java.util.Comparator.comparing(
+        if (direction == null || direction.isBlank()
+                || "asc".equalsIgnoreCase(direction)) {
+            // Keep the default ascending order.
+        } else if ("desc".equalsIgnoreCase(direction)) {
+            if ("duedate".equals(field)) {
+                comparator = Comparator.comparing(
                         Task::getDueDate,
-                        java.util.Comparator.nullsLast(
-                                java.util.Comparator.naturalOrder()));
-
-        default ->
-                throw new IllegalArgumentException(
-                        "Invalid sortBy value. Use id, title, priority, or dueDate.");
-    }
-
-    boolean descending = "desc".equalsIgnoreCase(direction);
-
-    if (descending) {
-        if ("duedate".equals(field)) {
-            comparator = java.util.Comparator.comparing(
-                    Task::getDueDate,
-                    java.util.Comparator.nullsLast(
-                            java.util.Comparator.reverseOrder()));
+                        Comparator.nullsLast(
+                                Comparator.reverseOrder()));
+            } else {
+                comparator = comparator.reversed();
+            }
         } else {
-            comparator = comparator.reversed();
+            throw new IllegalArgumentException(
+                    "Invalid direction. Use asc or desc.");
         }
-    } else if (direction != null
-            && !direction.isBlank()
-            && !"asc".equalsIgnoreCase(direction)) {
-        throw new IllegalArgumentException(
-                "Invalid direction. Use asc or desc.");
-    }
 
-    tasks.sort(comparator);
-    return tasks;
-}
+        tasks.sort(comparator);
+        return tasks;
+    }
 
     public Page<Task> filterTasksPage(
             String search,
@@ -137,24 +101,9 @@ public class TaskService {
                     "Page size must be between 1 and 100.");
         }
 
-        String keyword = (search == null || search.isBlank())
-                ? null
-                : search.trim();
-
-        String field = (sortBy == null || sortBy.isBlank())
-                ? "id"
-                : sortBy.trim().toLowerCase();
-
-        String property;
-
-        switch (field) {
-            case "id" -> property = "id";
-            case "title" -> property = "title";
-            case "priority" -> property = "priority";
-            case "duedate" -> property = "dueDate";
-            default -> throw new IllegalArgumentException(
-                    "Invalid sortBy value. Use id, title, priority, or dueDate.");
-        }
+        String keyword = normalizeSearch(search);
+        String field = normalizeSortField(sortBy);
+        String property = getSortProperty(field);
 
         Sort.Direction sortDirection;
 
@@ -168,44 +117,78 @@ public class TaskService {
                     "Invalid direction. Use asc or desc.");
         }
 
-        Sort sort;
-
         if ("dueDate".equals(property)) {
-            sort = Sort.by(
-                    sortDirection,
-                    property).and(
-                    Sort.by(Sort.Direction.ASC, "id"));
-        } else {
-            sort = Sort.by(sortDirection, property);
+            Pageable pageable = PageRequest.of(page, size);
+
+            if (sortDirection == Sort.Direction.ASC) {
+                return taskRepository.findByFiltersDueDateAscending(
+                        keyword, completed, priority, pageable);
+            }
+
+            return taskRepository.findByFiltersDueDateDescending(
+                    keyword, completed, priority, pageable);
         }
+
+        Sort sort = Sort.by(sortDirection, property)
+                .and(Sort.by(Sort.Direction.ASC, "id"));
 
         Pageable pageable = PageRequest.of(page, size, sort);
 
-        Page<Task> result = taskRepository.findByFilters(
+        return taskRepository.findByFilters(
                 keyword,
                 completed,
                 priority,
                 pageable);
+    }
 
-        if ("dueDate".equals(property)) {
-            List<Task> orderedTasks = result.getContent();
+    private String normalizeSearch(String search) {
+        return (search == null || search.isBlank())
+                ? null
+                : search.trim();
+    }
 
-            if (sortDirection == Sort.Direction.ASC) {
-                orderedTasks.sort(
-                        java.util.Comparator.comparing(
-                                Task::getDueDate,
-                                java.util.Comparator.nullsLast(
-                                        java.util.Comparator.naturalOrder())));
-            } else {
-                orderedTasks.sort(
-                        java.util.Comparator.comparing(
-                                Task::getDueDate,
-                                java.util.Comparator.nullsLast(
-                                        java.util.Comparator.reverseOrder())));
-            }
-        }
+    private String normalizeSortField(String sortBy) {
+        return (sortBy == null || sortBy.isBlank())
+                ? "id"
+                : sortBy.trim().toLowerCase();
+    }
 
-        return result;
+    private String getSortProperty(String field) {
+        return switch (field) {
+            case "id" -> "id";
+            case "title" -> "title";
+            case "priority" -> "priority";
+            case "duedate" -> "dueDate";
+            default -> throw new IllegalArgumentException(
+                    "Invalid sortBy value. Use id, title, priority, or dueDate.");
+        };
+    }
+
+    private Comparator<Task> getComparator(String field) {
+        return switch (field) {
+            case "title" -> Comparator.comparing(
+                    Task::getTitle,
+                    Comparator.nullsLast(
+                            String.CASE_INSENSITIVE_ORDER));
+
+            case "priority" -> Comparator.comparing(
+                    Task::getPriority,
+                    Comparator.nullsLast(
+                            Comparator.naturalOrder()));
+
+            case "id" -> Comparator.comparing(
+                    Task::getId,
+                    Comparator.nullsLast(
+                            Comparator.naturalOrder()));
+
+            case "duedate" -> Comparator.comparing(
+                    Task::getDueDate,
+                    Comparator.nullsLast(
+                            Comparator.naturalOrder()));
+
+            default -> throw new IllegalArgumentException(
+                    "Invalid sortBy value. Use id, title, priority, or dueDate.");
+        };
     }
 
     public Task addTask(

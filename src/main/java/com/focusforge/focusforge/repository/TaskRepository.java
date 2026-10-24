@@ -25,34 +25,86 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
             TaskPriority priority);
 
     @Query("""
-            SELECT t FROM Task t
-            WHERE (:search IS NULL OR :search = ''
-                   OR LOWER(t.title) LIKE LOWER(CONCAT('%', :search, '%')))
-              AND (:completed IS NULL OR t.completed = :completed)
-              AND (:priority IS NULL OR t.priority = :priority)
-            """)
+        SELECT t FROM Task t
+        WHERE (:search IS NULL OR :search = ''
+               OR LOWER(t.title) LIKE LOWER(CONCAT('%', :search, '%')))
+          AND (:completed IS NULL OR t.completed = :completed)
+          AND (:priority IS NULL OR t.priority = :priority)
+        """)
     List<Task> findByFilters(
             @Param("search") String search,
             @Param("completed") Boolean completed,
             @Param("priority") TaskPriority priority);
 
     @Query(
-            value = """
-                    SELECT t FROM Task t
-                    WHERE (:search IS NULL OR :search = ''
-                           OR LOWER(t.title) LIKE LOWER(CONCAT('%', :search, '%')))
-                      AND (:completed IS NULL OR t.completed = :completed)
-                      AND (:priority IS NULL OR t.priority = :priority)
-                    """,
-            countQuery = """
-                    SELECT COUNT(t) FROM Task t
-                    WHERE (:search IS NULL OR :search = ''
-                           OR LOWER(t.title) LIKE LOWER(CONCAT('%', :search, '%')))
-                      AND (:completed IS NULL OR t.completed = :completed)
-                      AND (:priority IS NULL OR t.priority = :priority)
-                    """
+        value = """
+            SELECT t FROM Task t
+            WHERE (:search IS NULL OR :search = ''
+                   OR LOWER(t.title) LIKE LOWER(CONCAT('%', :search, '%')))
+              AND (:completed IS NULL OR t.completed = :completed)
+              AND (:priority IS NULL OR t.priority = :priority)
+            """,
+        countQuery = """
+            SELECT COUNT(t) FROM Task t
+            WHERE (:search IS NULL OR :search = ''
+                   OR LOWER(t.title) LIKE LOWER(CONCAT('%', :search, '%')))
+              AND (:completed IS NULL OR t.completed = :completed)
+              AND (:priority IS NULL OR t.priority = :priority)
+            """
     )
     Page<Task> findByFilters(
+            @Param("search") String search,
+            @Param("completed") Boolean completed,
+            @Param("priority") TaskPriority priority,
+            Pageable pageable);
+
+    @Query(
+        value = """
+            SELECT t FROM Task t
+            WHERE (:search IS NULL OR :search = ''
+                   OR LOWER(t.title) LIKE LOWER(CONCAT('%', :search, '%')))
+              AND (:completed IS NULL OR t.completed = :completed)
+              AND (:priority IS NULL OR t.priority = :priority)
+            ORDER BY
+                CASE WHEN t.dueDate IS NULL THEN 1 ELSE 0 END ASC,
+                t.dueDate ASC,
+                t.id ASC
+            """,
+        countQuery = """
+            SELECT COUNT(t) FROM Task t
+            WHERE (:search IS NULL OR :search = ''
+                   OR LOWER(t.title) LIKE LOWER(CONCAT('%', :search, '%')))
+              AND (:completed IS NULL OR t.completed = :completed)
+              AND (:priority IS NULL OR t.priority = :priority)
+            """
+    )
+    Page<Task> findByFiltersDueDateAscending(
+            @Param("search") String search,
+            @Param("completed") Boolean completed,
+            @Param("priority") TaskPriority priority,
+            Pageable pageable);
+
+    @Query(
+        value = """
+            SELECT t FROM Task t
+            WHERE (:search IS NULL OR :search = ''
+                   OR LOWER(t.title) LIKE LOWER(CONCAT('%', :search, '%')))
+              AND (:completed IS NULL OR t.completed = :completed)
+              AND (:priority IS NULL OR t.priority = :priority)
+            ORDER BY
+                CASE WHEN t.dueDate IS NULL THEN 1 ELSE 0 END ASC,
+                t.dueDate DESC,
+                t.id ASC
+            """,
+        countQuery = """
+            SELECT COUNT(t) FROM Task t
+            WHERE (:search IS NULL OR :search = ''
+                   OR LOWER(t.title) LIKE LOWER(CONCAT('%', :search, '%')))
+              AND (:completed IS NULL OR t.completed = :completed)
+              AND (:priority IS NULL OR t.priority = :priority)
+            """
+    )
+    Page<Task> findByFiltersDueDateDescending(
             @Param("search") String search,
             @Param("completed") Boolean completed,
             @Param("priority") TaskPriority priority,
