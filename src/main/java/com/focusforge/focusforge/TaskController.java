@@ -10,6 +10,7 @@ import com.focusforge.focusforge.service.TaskService;
 
 import jakarta.validation.Valid;
 
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -42,16 +43,19 @@ public class TaskController {
     }
 
     @GetMapping
-    public List<Task> getAllTasks(
-            @RequestParam(required = false) String search,
-            @RequestParam(required = false) Boolean completed,
-            @RequestParam(required = false) TaskPriority priority,
-            @RequestParam(defaultValue = "id") String sortBy,
-            @RequestParam(defaultValue = "asc") String direction) {
+public Page<Task> getAllTasks(
+        @RequestParam(required = false) String search,
+        @RequestParam(required = false) Boolean completed,
+        @RequestParam(required = false) TaskPriority priority,
+        @RequestParam(defaultValue = "id") String sortBy,
+        @RequestParam(defaultValue = "asc") String direction,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "10") int size) {
 
-        return taskService.filterTasks(
-                search, completed, priority, sortBy, direction);
-    }
+    return taskService.filterTasksPage(
+            search, completed, priority,
+            sortBy, direction, page, size);
+}
 
     @GetMapping("/{id}")
     public Task getTaskById(@PathVariable Long id) {

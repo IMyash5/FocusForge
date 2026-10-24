@@ -55,10 +55,10 @@ class TaskControllerTest {
 
         mockMvc.perform(get("/api/tasks"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.length()").value(2))
-                .andExpect(jsonPath("$[0].title")
+                .andExpect(jsonPath("$.content.length()").value(2))
+                .andExpect(jsonPath("$.content[0].title")
                         .value("Complete Java assignment"))
-                .andExpect(jsonPath("$[1].title")
+                .andExpect(jsonPath("$.content[1].title")
                         .value("Practice Data Structures"));
     }
 
