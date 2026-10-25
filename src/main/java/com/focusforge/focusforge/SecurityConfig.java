@@ -46,23 +46,27 @@ public class SecurityConfig {
                 .build();
     }
 
-    @Bean
-    public SecurityFilterChain securityFilterChain(
-            HttpSecurity http) throws Exception {
+    
+@Bean
+public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    http.csrf(AbstractHttpConfigurer::disable)
+        .authorizeHttpRequests(auth -> auth
+            .requestMatchers(
+                "/swagger-ui.html",
+                "/swagger-ui/**",
+                "/v3/api-docs/**"
+            ).permitAll()
+            .requestMatchers(
+                HttpMethod.POST,
+                "/api/auth/register",
+                "/api/auth/login"
+            ).permitAll()
+            .requestMatchers("/hello").permitAll()
+            .anyRequest().authenticated()
+        )
+        .oauth2ResourceServer(oauth2 -> oauth2.jwt(jwt -> {}));
 
-        http
-            .csrf(AbstractHttpConfigurer::disable)
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers(HttpMethod.POST,
-                        "/api/auth/register",
-                        "/api/auth/login").permitAll()
-                .requestMatchers("/hello").permitAll()
-                .anyRequest().authenticated()
-            )
-            .oauth2ResourceServer(oauth2 ->
-                oauth2.jwt(jwt -> {})
-            );
+    return http.build();
+}
 
-        return http.build();
-    }
 }
