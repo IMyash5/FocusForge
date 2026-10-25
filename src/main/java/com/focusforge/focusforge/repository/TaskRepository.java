@@ -11,27 +11,29 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface TaskRepository extends JpaRepository<Task, Long> {
 
-    List<Task> findByTitleContainingIgnoreCase(String title);
+    List<Task> findByUser_Id(Long userId);
 
-    List<Task> findByCompleted(boolean completed);
+    List<Task> findByUser_IdAndTitleContainingIgnoreCase(
+            Long userId, String title);
 
-    List<Task> findByPriority(TaskPriority priority);
+    Optional<Task> findByIdAndUser_Id(Long id, Long userId);
 
-    List<Task> findByCompletedAndPriority(
-            boolean completed,
-            TaskPriority priority);
+    boolean existsByIdAndUser_Id(Long id, Long userId);
 
     @Query("""
         SELECT t FROM Task t
-        WHERE (:search IS NULL OR :search = ''
+        WHERE t.user.id = :userId
+          AND (:search IS NULL OR :search = ''
                OR LOWER(t.title) LIKE LOWER(CONCAT('%', :search, '%')))
           AND (:completed IS NULL OR t.completed = :completed)
           AND (:priority IS NULL OR t.priority = :priority)
         """)
-    List<Task> findByFilters(
+    List<Task> findByUserAndFilters(
+            @Param("userId") Long userId,
             @Param("search") String search,
             @Param("completed") Boolean completed,
             @Param("priority") TaskPriority priority);
@@ -39,20 +41,23 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     @Query(
         value = """
             SELECT t FROM Task t
-            WHERE (:search IS NULL OR :search = ''
+            WHERE t.user.id = :userId
+              AND (:search IS NULL OR :search = ''
                    OR LOWER(t.title) LIKE LOWER(CONCAT('%', :search, '%')))
               AND (:completed IS NULL OR t.completed = :completed)
               AND (:priority IS NULL OR t.priority = :priority)
             """,
         countQuery = """
             SELECT COUNT(t) FROM Task t
-            WHERE (:search IS NULL OR :search = ''
+            WHERE t.user.id = :userId
+              AND (:search IS NULL OR :search = ''
                    OR LOWER(t.title) LIKE LOWER(CONCAT('%', :search, '%')))
               AND (:completed IS NULL OR t.completed = :completed)
               AND (:priority IS NULL OR t.priority = :priority)
             """
     )
-    Page<Task> findByFilters(
+    Page<Task> findByUserAndFilters(
+            @Param("userId") Long userId,
             @Param("search") String search,
             @Param("completed") Boolean completed,
             @Param("priority") TaskPriority priority,
@@ -61,7 +66,8 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     @Query(
         value = """
             SELECT t FROM Task t
-            WHERE (:search IS NULL OR :search = ''
+            WHERE t.user.id = :userId
+              AND (:search IS NULL OR :search = ''
                    OR LOWER(t.title) LIKE LOWER(CONCAT('%', :search, '%')))
               AND (:completed IS NULL OR t.completed = :completed)
               AND (:priority IS NULL OR t.priority = :priority)
@@ -72,13 +78,15 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
             """,
         countQuery = """
             SELECT COUNT(t) FROM Task t
-            WHERE (:search IS NULL OR :search = ''
+            WHERE t.user.id = :userId
+              AND (:search IS NULL OR :search = ''
                    OR LOWER(t.title) LIKE LOWER(CONCAT('%', :search, '%')))
               AND (:completed IS NULL OR t.completed = :completed)
               AND (:priority IS NULL OR t.priority = :priority)
             """
     )
-    Page<Task> findByFiltersDueDateAscending(
+    Page<Task> findByUserAndFiltersDueDateAscending(
+            @Param("userId") Long userId,
             @Param("search") String search,
             @Param("completed") Boolean completed,
             @Param("priority") TaskPriority priority,
@@ -87,7 +95,8 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
     @Query(
         value = """
             SELECT t FROM Task t
-            WHERE (:search IS NULL OR :search = ''
+            WHERE t.user.id = :userId
+              AND (:search IS NULL OR :search = ''
                    OR LOWER(t.title) LIKE LOWER(CONCAT('%', :search, '%')))
               AND (:completed IS NULL OR t.completed = :completed)
               AND (:priority IS NULL OR t.priority = :priority)
@@ -98,13 +107,15 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
             """,
         countQuery = """
             SELECT COUNT(t) FROM Task t
-            WHERE (:search IS NULL OR :search = ''
+            WHERE t.user.id = :userId
+              AND (:search IS NULL OR :search = ''
                    OR LOWER(t.title) LIKE LOWER(CONCAT('%', :search, '%')))
               AND (:completed IS NULL OR t.completed = :completed)
               AND (:priority IS NULL OR t.priority = :priority)
             """
     )
-    Page<Task> findByFiltersDueDateDescending(
+    Page<Task> findByUserAndFiltersDueDateDescending(
+            @Param("userId") Long userId,
             @Param("search") String search,
             @Param("completed") Boolean completed,
             @Param("priority") TaskPriority priority,

@@ -1,10 +1,13 @@
 
 package com.focusforge.focusforge;
 
+import com.focusforge.focusforge.model.AppUser;
 import com.focusforge.focusforge.model.Task;
 import com.focusforge.focusforge.model.TaskPriority;
+import com.focusforge.focusforge.repository.AppUserRepository;
 import com.focusforge.focusforge.repository.TaskRepository;
 import com.focusforge.focusforge.service.TaskService;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
@@ -21,25 +24,41 @@ import static org.mockito.Mockito.*;
 
 class TaskServiceTest {
 
+    private static final Long USER_ID = 1L;
+
     @Mock
     private TaskRepository taskRepository;
 
+    @Mock
+    private AppUserRepository appUserRepository;
+
     private TaskService taskService;
+    private AppUser testUser;
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        taskService = new TaskService(taskRepository);
+
+        taskService = new TaskService(taskRepository, appUserRepository);
+
+        testUser = new AppUser("test@example.com", "test-password-hash");
+
+        // Simulate a user already stored in the database.
+        try {
+            var idField = AppUser.class.getDeclaredField("id");
+            idField.setAccessible(true);
+            idField.set(testUser, USER_ID);
+        } catch (ReflectiveOperationException ex) {
+            throw new IllegalStateException("Could not prepare test user", ex);
+        }
+
+        when(appUserRepository.findById(USER_ID))
+                .thenReturn(Optional.of(testUser));
     }
 
     @Test
     void shouldAddTaskSuccessfully() {
         LocalDate dueDate = LocalDate.of(2026, 11, 15);
-
-        Task task = new Task(
-                null, "Learn Java", false, TaskPriority.HIGH);
-        task.setDescription("Practice Java collections");
-        task.setDueDate(dueDate);
 
         when(taskRepository.save(any(Task.class)))
                 .thenAnswer(invocation -> {
@@ -49,6 +68,7 @@ class TaskServiceTest {
                 });
 
         Task result = taskService.addTask(
+                USER_ID,
                 "Learn Java",
                 "Practice Java collections",
                 TaskPriority.HIGH,
@@ -60,30 +80,32 @@ class TaskServiceTest {
         assertEquals("Practice Java collections", result.getDescription());
         assertEquals(TaskPriority.HIGH, result.getPriority());
         assertEquals(dueDate, result.getDueDate());
+        assertEquals(USER_ID, result.getUser().getId());
 
         verify(taskRepository).save(any(Task.class));
+        verify(appUserRepository).findById(USER_ID);
     }
 
     @Test
-    void shouldFindTaskById() {
+    void shouldFindTaskByIdForCurrentUser() {
         Task task = new Task(
                 1L, "Learn Java", false, TaskPriority.MEDIUM);
 
-        when(taskRepository.findById(1L))
+        when(taskRepository.findByIdAndUser_Id(1L, USER_ID))
                 .thenReturn(Optional.of(task));
 
-        Task result = taskService.getTaskById(1L);
+        Task result = taskService.getTaskById(USER_ID, 1L);
 
         assertNotNull(result);
         assertEquals("Learn Java", result.getTitle());
     }
 
     @Test
-    void shouldReturnNullWhenTaskDoesNotExist() {
-        when(taskRepository.findById(99L))
+    void shouldReturnNullWhenTaskDoesNotExistForCurrentUser() {
+        when(taskRepository.findByIdAndUser_Id(99L, USER_ID))
                 .thenReturn(Optional.empty());
 
-        Task result = taskService.getTaskById(99L);
+        Task result = taskService.getTaskById(USER_ID, 99L);
 
         assertNull(result);
     }
@@ -95,12 +117,14 @@ class TaskServiceTest {
         Task existingTask = new Task(
                 1L, "Old title", false, TaskPriority.LOW);
 
-        when(taskRepository.findById(1L))
+        when(taskRepository.findByIdAndUser_Id(1L, USER_ID))
                 .thenReturn(Optional.of(existingTask));
+
         when(taskRepository.save(any(Task.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         Task result = taskService.updateTask(
+                USER_ID,
                 1L,
                 "Updated title",
                 "Updated description",
@@ -119,11 +143,12 @@ class TaskServiceTest {
     }
 
     @Test
-    void shouldReturnNullWhenUpdatingNonexistentTask() {
-        when(taskRepository.findById(99L))
+    void shouldReturnNullWhenUpdatingTaskNotOwnedByUser() {
+        when(taskRepository.findByIdAndUser_Id(99L, USER_ID))
                 .thenReturn(Optional.empty());
 
         Task result = taskService.updateTask(
+                USER_ID,
                 99L,
                 "Updated title",
                 "Description",
@@ -137,47 +162,43 @@ class TaskServiceTest {
 
     @Test
     void shouldDeleteTaskSuccessfully() {
-        when(taskRepository.existsById(1L)).thenReturn(true);
+        Task task = new Task(1L, "Task to delete", false);
 
-        boolean result = taskService.deleteTask(1L);
+        when(taskRepository.findByIdAndUser_Id(1L, USER_ID))
+                .thenReturn(Optional.of(task));
+
+        boolean result = taskService.deleteTask(USER_ID, 1L);
 
         assertTrue(result);
-        verify(taskRepository).deleteById(1L);
+        verify(taskRepository).delete(task);
     }
 
     @Test
-    void shouldReturnFalseWhenDeletingNonexistentTask() {
-        when(taskRepository.existsById(99L)).thenReturn(false);
+    void shouldReturnFalseWhenDeletingTaskNotOwnedByUser() {
+        when(taskRepository.findByIdAndUser_Id(99L, USER_ID))
+                .thenReturn(Optional.empty());
 
-        boolean result = taskService.deleteTask(99L);
+        boolean result = taskService.deleteTask(USER_ID, 99L);
 
         assertFalse(result);
-        verify(taskRepository, never()).deleteById(99L);
+        verify(taskRepository, never()).delete(any(Task.class));
     }
 
     @Test
-    void shouldPreserveOtherTasksWhenDeletingOneTask() {
-        when(taskRepository.existsById(1L)).thenReturn(true);
-
-        boolean result = taskService.deleteTask(1L);
-
-        assertTrue(result);
-        verify(taskRepository).deleteById(1L);
-    }
-
-    @Test
-    void shouldReturnAllTasksSuccessfully() {
+    void shouldReturnOnlyCurrentUsersTasks() {
         List<Task> tasks = List.of(
                 new Task(1L, "Task 1", false),
                 new Task(2L, "Task 2", true));
 
-        when(taskRepository.findAll()).thenReturn(tasks);
+        when(taskRepository.findByUser_Id(USER_ID)).thenReturn(tasks);
 
-        List<Task> result = taskService.getAllTasks();
+        List<Task> result = taskService.getAllTasks(USER_ID);
 
         assertEquals(2, result.size());
         assertEquals("Task 1", result.get(0).getTitle());
         assertEquals("Task 2", result.get(1).getTitle());
+
+        verify(taskRepository).findByUser_Id(USER_ID);
     }
 
     @Test
@@ -190,6 +211,7 @@ class TaskServiceTest {
                 });
 
         Task result = taskService.addTask(
+                USER_ID,
                 "Default priority task",
                 "Testing default priority",
                 null,
@@ -212,12 +234,12 @@ class TaskServiceTest {
         Task noDeadlineTask = new Task(
                 3L, "No deadline", false, TaskPriority.LOW);
 
-        when(taskRepository.findByFilters(null, null, null))
+        when(taskRepository.findByUserAndFilters(USER_ID, null, null, null))
                 .thenReturn(new ArrayList<>(
                         List.of(laterTask, noDeadlineTask, earlierTask)));
 
         List<Task> result = taskService.filterTasks(
-                null, null, null, "dueDate", "asc");
+                USER_ID, null, null, null, "dueDate", "asc");
 
         assertEquals(3, result.size());
         assertEquals("Earlier task", result.get(0).getTitle());
@@ -238,12 +260,12 @@ class TaskServiceTest {
         Task noDeadlineTask = new Task(
                 3L, "No deadline", false, TaskPriority.LOW);
 
-        when(taskRepository.findByFilters(null, null, null))
+        when(taskRepository.findByUserAndFilters(USER_ID, null, null, null))
                 .thenReturn(new ArrayList<>(
                         List.of(earlierTask, noDeadlineTask, laterTask)));
 
         List<Task> result = taskService.filterTasks(
-                null, null, null, "dueDate", "desc");
+                USER_ID, null, null, null, "dueDate", "desc");
 
         assertEquals(3, result.size());
         assertEquals("Later task", result.get(0).getTitle());
@@ -253,12 +275,12 @@ class TaskServiceTest {
 
     @Test
     void shouldRejectInvalidSortField() {
-        when(taskRepository.findByFilters(null, null, null))
+        when(taskRepository.findByUserAndFilters(USER_ID, null, null, null))
                 .thenReturn(new ArrayList<>());
 
         assertThrows(
                 IllegalArgumentException.class,
                 () -> taskService.filterTasks(
-                        null, null, null, "invalidField", "asc"));
+                        USER_ID, null, null, null, "invalidField", "asc"));
     }
 }

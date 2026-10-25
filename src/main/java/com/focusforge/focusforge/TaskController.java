@@ -13,6 +13,8 @@ import jakarta.validation.Valid;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -25,7 +27,6 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.net.URI;
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/tasks")
@@ -37,29 +38,51 @@ public class TaskController {
         this.taskService = taskService;
     }
 
+    private Long getUserId(Jwt jwt) {
+        try {
+            return Long.valueOf(jwt.getSubject());
+        } catch (NumberFormatException ex) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Invalid authentication token.");
+        }
+    }
+
     @GetMapping("/stats")
-    public TaskStatisticsResponse getTaskStatistics() {
-        return taskService.getTaskStatistics();
+    public TaskStatisticsResponse getTaskStatistics(
+            @AuthenticationPrincipal Jwt jwt) {
+
+        return taskService.getTaskStatistics(getUserId(jwt));
     }
 
     @GetMapping
-public Page<Task> getAllTasks(
-        @RequestParam(required = false) String search,
-        @RequestParam(required = false) Boolean completed,
-        @RequestParam(required = false) TaskPriority priority,
-        @RequestParam(defaultValue = "id") String sortBy,
-        @RequestParam(defaultValue = "asc") String direction,
-        @RequestParam(defaultValue = "0") int page,
-        @RequestParam(defaultValue = "10") int size) {
+    public Page<Task> getAllTasks(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) Boolean completed,
+            @RequestParam(required = false) TaskPriority priority,
+            @RequestParam(defaultValue = "id") String sortBy,
+            @RequestParam(defaultValue = "asc") String direction,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
 
-    return taskService.filterTasksPage(
-            search, completed, priority,
-            sortBy, direction, page, size);
-}
+        return taskService.filterTasksPage(
+                getUserId(jwt),
+                search,
+                completed,
+                priority,
+                sortBy,
+                direction,
+                page,
+                size);
+    }
 
     @GetMapping("/{id}")
-    public Task getTaskById(@PathVariable Long id) {
-        Task task = taskService.getTaskById(id);
+    public Task getTaskById(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable Long id) {
+
+        Task task = taskService.getTaskById(getUserId(jwt), id);
 
         if (task == null) {
             throw new ResponseStatusException(
@@ -72,9 +95,11 @@ public Page<Task> getAllTasks(
 
     @PostMapping
     public ResponseEntity<Task> createTask(
+            @AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody CreateTaskRequest request) {
 
         Task createdTask = taskService.addTask(
+                getUserId(jwt),
                 request.getTitle(),
                 request.getDescription(),
                 request.getPriority(),
@@ -90,10 +115,12 @@ public Page<Task> getAllTasks(
 
     @PutMapping("/{id}")
     public Task updateTask(
+            @AuthenticationPrincipal Jwt jwt,
             @PathVariable Long id,
             @Valid @RequestBody UpdateTaskRequest request) {
 
         Task updatedTask = taskService.updateTask(
+                getUserId(jwt),
                 id,
                 request.getTitle(),
                 request.getDescription(),
@@ -112,9 +139,10 @@ public Page<Task> getAllTasks(
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteTask(
+            @AuthenticationPrincipal Jwt jwt,
             @PathVariable Long id) {
 
-        boolean deleted = taskService.deleteTask(id);
+        boolean deleted = taskService.deleteTask(getUserId(jwt), id);
 
         if (!deleted) {
             throw new ResponseStatusException(

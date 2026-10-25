@@ -2,8 +2,10 @@
 package com.focusforge.focusforge.service;
 
 import com.focusforge.focusforge.dto.TaskStatisticsResponse;
+import com.focusforge.focusforge.model.AppUser;
 import com.focusforge.focusforge.model.Task;
 import com.focusforge.focusforge.model.TaskPriority;
+import com.focusforge.focusforge.repository.AppUserRepository;
 import com.focusforge.focusforge.repository.TaskRepository;
 
 import org.springframework.data.domain.Page;
@@ -11,6 +13,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.Comparator;
@@ -20,56 +23,58 @@ import java.util.List;
 public class TaskService {
 
     private final TaskRepository taskRepository;
+    private final AppUserRepository appUserRepository;
 
-    public TaskService(TaskRepository taskRepository) {
+    public TaskService(
+            TaskRepository taskRepository,
+            AppUserRepository appUserRepository) {
         this.taskRepository = taskRepository;
+        this.appUserRepository = appUserRepository;
     }
 
-    public List<Task> getAllTasks() {
-        return taskRepository.findAll();
+    public List<Task> getAllTasks(Long userId) {
+        return taskRepository.findByUser_Id(userId);
     }
 
-    public List<Task> searchTasks(String keyword) {
+    public List<Task> searchTasks(Long userId, String keyword) {
         if (keyword == null || keyword.isBlank()) {
-            return getAllTasks();
+            return getAllTasks(userId);
         }
 
-        return taskRepository.findByTitleContainingIgnoreCase(
-                keyword.trim());
+        return taskRepository.findByUser_IdAndTitleContainingIgnoreCase(
+                userId, keyword.trim());
     }
 
     public List<Task> filterTasks(
+            Long userId,
             String search,
             Boolean completed,
             TaskPriority priority) {
-
-        return filterTasks(search, completed, priority, "id", "asc");
+        return filterTasks(userId, search, completed, priority, "id", "asc");
     }
 
     public List<Task> filterTasks(
+            Long userId,
             String search,
             Boolean completed,
             TaskPriority priority,
             String sortBy,
             String direction) {
 
-        String keyword = normalizeSearch(search);
-
-        List<Task> tasks = taskRepository.findByFilters(
-                keyword, completed, priority);
+        List<Task> tasks = taskRepository.findByUserAndFilters(
+                userId, normalizeSearch(search), completed, priority);
 
         String field = normalizeSortField(sortBy);
         Comparator<Task> comparator = getComparator(field);
 
         if (direction == null || direction.isBlank()
                 || "asc".equalsIgnoreCase(direction)) {
-            // Keep the default ascending order.
+            // Ascending order is the default.
         } else if ("desc".equalsIgnoreCase(direction)) {
             if ("duedate".equals(field)) {
                 comparator = Comparator.comparing(
                         Task::getDueDate,
-                        Comparator.nullsLast(
-                                Comparator.reverseOrder()));
+                        Comparator.nullsLast(Comparator.reverseOrder()));
             } else {
                 comparator = comparator.reversed();
             }
@@ -83,6 +88,7 @@ public class TaskService {
     }
 
     public Page<Task> filterTasksPage(
+            Long userId,
             String search,
             Boolean completed,
             TaskPriority priority,
@@ -121,12 +127,12 @@ public class TaskService {
             Pageable pageable = PageRequest.of(page, size);
 
             if (sortDirection == Sort.Direction.ASC) {
-                return taskRepository.findByFiltersDueDateAscending(
-                        keyword, completed, priority, pageable);
+                return taskRepository.findByUserAndFiltersDueDateAscending(
+                        userId, keyword, completed, priority, pageable);
             }
 
-            return taskRepository.findByFiltersDueDateDescending(
-                    keyword, completed, priority, pageable);
+            return taskRepository.findByUserAndFiltersDueDateDescending(
+                    userId, keyword, completed, priority, pageable);
         }
 
         Sort sort = Sort.by(sortDirection, property)
@@ -134,11 +140,8 @@ public class TaskService {
 
         Pageable pageable = PageRequest.of(page, size, sort);
 
-        return taskRepository.findByFilters(
-                keyword,
-                completed,
-                priority,
-                pageable);
+        return taskRepository.findByUserAndFilters(
+                userId, keyword, completed, priority, pageable);
     }
 
     private String normalizeSearch(String search) {
@@ -168,47 +171,54 @@ public class TaskService {
         return switch (field) {
             case "title" -> Comparator.comparing(
                     Task::getTitle,
-                    Comparator.nullsLast(
-                            String.CASE_INSENSITIVE_ORDER));
+                    Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER));
 
             case "priority" -> Comparator.comparing(
                     Task::getPriority,
-                    Comparator.nullsLast(
-                            Comparator.naturalOrder()));
+                    Comparator.nullsLast(Comparator.naturalOrder()));
 
             case "id" -> Comparator.comparing(
                     Task::getId,
-                    Comparator.nullsLast(
-                            Comparator.naturalOrder()));
+                    Comparator.nullsLast(Comparator.naturalOrder()));
 
             case "duedate" -> Comparator.comparing(
                     Task::getDueDate,
-                    Comparator.nullsLast(
-                            Comparator.naturalOrder()));
+                    Comparator.nullsLast(Comparator.naturalOrder()));
 
             default -> throw new IllegalArgumentException(
                     "Invalid sortBy value. Use id, title, priority, or dueDate.");
         };
     }
 
+    @Transactional
     public Task addTask(
+            Long userId,
             String title,
             String description,
             TaskPriority priority,
             LocalDate dueDate) {
 
+        AppUser user = appUserRepository.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Authenticated user does not exist."));
+
         Task task = new Task(null, title, false, priority);
         task.setDescription(description);
         task.setDueDate(dueDate);
+        task.setUser(user);
 
         return taskRepository.save(task);
     }
 
-    public Task getTaskById(Long id) {
-        return taskRepository.findById(id).orElse(null);
+    @Transactional(readOnly = true)
+    public Task getTaskById(Long userId, Long id) {
+        return taskRepository.findByIdAndUser_Id(id, userId)
+                .orElse(null);
     }
 
+    @Transactional
     public Task updateTask(
+            Long userId,
             Long id,
             String title,
             String description,
@@ -216,7 +226,7 @@ public class TaskService {
             TaskPriority priority,
             LocalDate dueDate) {
 
-        Task task = getTaskById(id);
+        Task task = getTaskById(userId, id);
 
         if (task == null) {
             return null;
@@ -231,17 +241,21 @@ public class TaskService {
         return taskRepository.save(task);
     }
 
-    public boolean deleteTask(Long id) {
-        if (!taskRepository.existsById(id)) {
+    @Transactional
+    public boolean deleteTask(Long userId, Long id) {
+        Task task = getTaskById(userId, id);
+
+        if (task == null) {
             return false;
         }
 
-        taskRepository.deleteById(id);
+        taskRepository.delete(task);
         return true;
     }
 
-    public TaskStatisticsResponse getTaskStatistics() {
-        List<Task> tasks = taskRepository.findAll();
+    @Transactional(readOnly = true)
+    public TaskStatisticsResponse getTaskStatistics(Long userId) {
+        List<Task> tasks = taskRepository.findByUser_Id(userId);
 
         long totalTasks = tasks.size();
 
